@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ingest — Content Pipeline Console</title>
+<style>
+  :root {
+    --sidebar: #14213d;
+    --sidebar-active: #1f2f57;
+    --accent: #4f6df5;
+    --accent-dark: #3d54c9;
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --border: #e6e8f0;
+    --text: #1c1f2e;
+    --text-dim: #6b7280;
+    --danger: #e05252;
+    --ok: #2eb872;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+  .app { display: flex; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    background: var(--sidebar);
+    color: #cfd6ee;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 18px;
+    font-weight: 700;
+    font-size: 17px;
+    color: #fff;
+  }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .nav { flex: 1; padding: 8px 10px; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    color: #b9c1e0;
+  }
+  .nav-item:hover { background: var(--sidebar-active); color: #fff; }
+  .nav-item.active { background: var(--sidebar-active); color: #fff; font-weight: 600; }
+  .nav-icon { width: 18px; text-align: center; }
+  .sidebar-footer {
+    padding: 14px 18px;
+    font-size: 12px;
+    color: #7c86ac;
+    border-top: 1px solid #263258;
+  }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
+  .search {
+    flex: 1;
+    max-width: 380px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .topbar-actions { display: flex; gap: 10px; }
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-danger-outline { background: #fff; color: var(--danger); border: 1px solid #f3c9c9; }
+
+  .content { flex: 1; display: flex; min-height: 0; }
+
+  /* Conversation list */
+  .list-pane {
+    width: 340px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .list-header {
+    padding: 14px 18px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .conv-item {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .conv-item:hover { background: var(--bg); }
+  .conv-item.active { background: #eef1ff; border-left: 3px solid var(--accent); }
+  .conv-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .conv-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .conv-snippet { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+  .status-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    text-transform: uppercase;
+  }
+  .status-processing { background: #fff3d6; color: #9a6b00; }
+  .status-ready { background: #e3f7ec; color: #1a8a55; }
+
+  /* Detail pane */
+  .detail-pane { flex: 1; overflow-y: auto; padding: 28px 40px; }
+  .detail-empty {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .detail-empty .big { font-size: 15px; margin-bottom: 6px; color: var(--text); font-weight: 600; }
+  .detail-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .detail-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 22px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card h4 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-dim); }
+  .summary-text { font-size: 14px; line-height: 1.6; }
+  .tag {
+    display: inline-block;
+    font-size: 12px;
+    background: #eef1ff;
+    color: var(--accent-dark);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin: 0 6px 6px 0;
+  }
+  .action-item { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-bottom: 8px; }
+  .action-item input { margin-top: 3px; }
+  .transcript-line { display: flex; gap: 14px; margin-bottom: 14px; }
+  .transcript-time { font-size: 12px; color: var(--text-dim); width: 44px; flex-shrink: 0; padding-top: 2px; }
+  .transcript-speaker { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .transcript-text { font-size: 14px; line-height: 1.5; color: #2b2f3d; }
+
+  /* Upload modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,33,61,.45);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 14px; width: 440px; padding: 26px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.2);
+  }
+  .modal h3 { margin: 0 0 6px; font-size: 17px; }
+  .modal p.sub { margin: 0 0 18px; font-size: 13px; color: var(--text-dim); }
+  .dropzone {
+    border: 2px dashed #c9cfe8;
+    border-radius: 10px;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .dropzone:hover { border-color: var(--accent); background: #f8f9ff; }
+  .dropzone .icon { font-size: 26px; margin-bottom: 8px; }
+  .progress-wrap { display: none; margin-bottom: 16px; }
+  .progress-wrap.show { display: block; }
+  .progress-bar-bg { background: var(--bg); border-radius: 20px; height: 8px; overflow: hidden; }
+  .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width .2s; }
+  .progress-label { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+  .pipeline-steps { font-size: 12px; color: var(--text-dim); margin-top: 14px; line-height: 1.8; }
+  .pipeline-steps .step { display: flex; align-items: center; gap: 8px; }
+  .step .marker { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #d5d9ea; flex-shrink: 0; }
+  .step.done .marker { background: var(--ok); border-color: var(--ok); }
+  .step.active .marker { background: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="brand"><span class="dot"></span> Ingest</div>
+    <div class="nav">
+      <div class="nav-item active"><span class="nav-icon">🏠</span> Home</div>
+      <div class="nav-item"><span class="nav-icon">💬</span> Chat</div>
+      <div class="nav-item"><span class="nav-icon">📁</span> Folders</div>
+      <div class="nav-item"><span class="nav-icon">📡</span> Channels</div>
+      <div class="nav-item"><span class="nav-icon">🔌</span> Apps &amp; Integrations</div>
+      <div class="nav-item"><span class="nav-icon">⚙️</span> Settings</div>
+    </div>
+    <div class="sidebar-footer">Signed in as johnchristinchriz@gmail.com</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="search">Search conversations…</div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="recordBtn">🔴 Record</button>
+        <button class="btn btn-primary" id="uploadBtn">⬆ Upload audio/video</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Conversation list -->
+      <div class="list-pane" id="listPane">
+        <div class="list-header">Recent Conversations</div>
+        <!-- items injected by JS -->
+      </div>
+
+      <!-- Detail pane -->
+      <div class="detail-pane" id="detailPane">
+        <div class="detail-empty">
+          <div class="big">No conversation selected</div>
+          <div>Upload an audio file or select one from the list to see its transcript and summary.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>Upload a recording</h3>
+    <p class="sub">Supported formats: .mp3, .wav, .m4a. The file is sent to S3, which triggers the ingestion pipeline.</p>
+
+    <div class="dropzone" id="dropzone">
+      <div class="icon">🎙️</div>
+      <div><strong>Click to choose a file</strong> or drag it here</div>
+    </div>
+    <input type="file" id="fileInput" accept="audio/*" style="display:none" />
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-label" id="progressLabel">Uploading to S3…</div>
+      <div class="pipeline-steps" id="pipelineSteps">
+        <div class="step" data-step="upload"><span class="marker"></span> Upload to S3</div>
+        <div class="step" data-step="trigger"><span class="marker"></span> Lambda triggered</div>
+        <div class="step" data-step="transcribe"><span class="marker"></span> Speech-to-text</div>
+        <div class="step" data-step="summarize"><span class="marker"></span> LLM summary &amp; tags</div>
+        <div class="step" data-step="store"><span class="marker"></span> Saved to database</div>
+        <div class="step" data-step="notify"><span class="marker"></span> Email notification sent</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelUpload">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Mock data store (stand-in for DynamoDB records, to be wired to the real API later) ---- */
+let conversations = [
+  {
+    id: "c1",
+    title: "Weekly Product Sync",
+    date: "Aug 8, 2026",
+    duration: "32 min",
+    status: "ready",
+    summary: "The team reviewed the ingestion pipeline milestone plan, agreed to prioritize the S3-to-Lambda trigger this week, and flagged the need for a cost alarm on Transcribe usage before wider rollout.",
+    tags: ["planning", "pipeline", "aws"],
+    actionItems: [
+      "Set up S3 event trigger for the ingest bucket",
+      "Draft IAM role with least-privilege permissions",
+      "Add CloudWatch billing alarm for Transcribe"
+    ],
+    transcript: [
+      { time: "00:00", speaker: "Chris", text: "Let's start with where we left off on the pipeline roadmap." },
+      { time: "00:14", speaker: "Chris", text: "Phase zero and one are basically done — bucket and Lambda are wired up." },
+      { time: "00:41", speaker: "Chris", text: "Next up is getting the upload interface talking to that bucket directly." }
+    ]
+  },
+  {
+    id: "c2",
+    title: "Client Onboarding Call",
+    date: "Aug 6, 2026",
+    duration: "18 min",
+    status: "ready",
+    summary: "Walked the client through the media tagging use case, confirmed their video files are typically under 200MB, and agreed on a follow-up demo once transcription and summarization are live.",
+    tags: ["client", "demo"],
+    actionItems: [
+      "Send follow-up demo invite for next sprint",
+      "Confirm max file size limits with client"
+    ],
+    transcript: [
+      { time: "00:00", speaker: "Client", text: "We mostly work with short-form video, so files stay under 200MB." },
+      { time: "00:22", speaker: "Chris", text: "Good — that fits comfortably within Lambda's payload limits via S3." }
+    ]
+  }
+];
+
+let activeId = null;
+
+function renderList() {
+  const pane = document.getElementById("listPane");
+  pane.innerHTML = '<div class="list-header">Recent Conversations</div>';
+  conversations.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "conv-item" + (c.id === activeId ? " active" : "");
+    const statusPill = c.status === "ready"
+      ? '<span class="status-pill status-ready">Ready</span>'
+      : '<span class="status-pill status-processing">Processing</span>';
+    item.innerHTML = `
+      <div class="conv-title">${c.title}${statusPill}</div>
+      <div class="conv-meta">${c.date} · ${c.duration}</div>
+      <div class="conv-snippet">${c.status === "ready" ? c.summary.slice(0, 90) + "…" : "Transcription and summary in progress…"}</div>
+    `;
+    item.onclick = () => { activeId = c.id; renderList(); renderDetail(); };
+    pane.appendChild(item);
+  });
+}
+
+function renderDetail() {
+  const pane = document.getElementById("detailPane");
+  const c = conversations.find(x => x.id === activeId);
+  if (!c) {
+    pane.innerHTML = `<div class="detail-empty">
+      <div class="big">No conversation selected</div>
+      <div>Upload an audio file or select one from the list to see its transcript and summary.</div>
+    </div>`;
+    return;
+  }
+  if (c.status !== "ready") {
+    pane.innerHTML = `
+      <div class="detail-title">${c.title}</div>
+      <div class="detail-meta">${c.date} · ${c.duration} · <span class="status-pill status-processing">Processing</span></div>
+      <div class="card"><h4>Status</h4><div class="summary-text">Your file is running through the pipeline: transcription → summarization → storage → notification. This view will update automatically once it's ready.</div></div>
+    `;
+    return;
+  }
+  pane.innerHTML = `
+    <div class="detail-title">${c.title}</div>
+    <div class="detail-meta">${c.date} · ${c.duration} · <span class="status-pill status-ready">Ready</span></div>
+    <div class="tabs">
+      <div class="tab active">Summary</div>
+      <div class="tab">Transcript</div>
+    </div>
+    <div class="card">
+      <h4>Summary</h4>
+      <div class="summary-text">${c.summary}</div>
+      <div style="margin-top:12px">${c.tags.map(t => `<span class="tag">#${t}</span>`).join("")}</div>
+    </div>
+    <div class="card">
+      <h4>Action Items</h4>
+      ${c.actionItems.map(a => `<div class="action-item"><input type="checkbox"/> <div>${a}</div></div>`).join("")}
+    </div>
+    <div class="card">
+      <h4>Transcript</h4>
+      ${c.transcript.map(t => `
+        <div class="transcript-line">
+          <div class="transcript-time">${t.time}</div>
+          <div>
+            <div class="transcript-speaker">${t.speaker}</div>
+            <div class="transcript-text">${t.text}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+/* ---- Upload modal + mock pipeline progress ---- */
+const overlay = document.getElementById("overlay");
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+const progressWrap = document.getElementById("progressWrap");
+const progressBar = document.getElementById("progressBar");
+const progressLabel = document.getElementById("progressLabel");
+const steps = ["upload", "trigger", "transcribe", "summarize", "store", "notify"];
+
+document.getElementById("uploadBtn").onclick = () => { overlay.classList.add("show"); resetModal(); };
+document.getElementById("recordBtn").onclick = () => alert("Live recording isn't wired up yet — that's a later phase. Use Upload for now.");
+document.getElementById("cancelUpload").onclick = () => overlay.classList.remove("show");
+dropzone.onclick = () => fileInput.click();
+fileInput.onchange = () => { if (fileInput.files.length) startUpload(fileInput.files[0]); };
+
+dropzone.ondragover = (e) => { e.preventDefault(); dropzone.style.borderColor = "var(--accent)"; };
+dropzone.ondragleave = () => { dropzone.style.borderColor = "#c9cfe8"; };
+dropzone.ondrop = (e) => {
+  e.preventDefault();
+  dropzone.style.borderColor = "#c9cfe8";
+  if (e.dataTransfer.files.length) startUpload(e.dataTransfer.files[0]);
+};
+
+function resetModal() {
+  progressWrap.classList.remove("show");
+  progressBar.style.width = "0%";
+  dropzone.style.display = "block";
+  steps.forEach(s => {
+    const el = document.querySelector(`.step[data-step="${s}"]`);
+    el.classList.remove("done", "active");
+  });
+}
+
+function startUpload(file) {
+  dropzone.style.display = "none";
+  progressWrap.classList.add("show");
+  const newId = "c" + Date.now();
+  conversations.unshift({
+    id: newId,
+    title: file.name.replace(/\.[^/.]+$/, ""),
+    date: "Aug 10, 2026",
+    duration: "—",
+    status: "processing",
+    summary: "", tags: [], actionItems: [], transcript: []
+  });
+  activeId = newId;
+  renderList(); renderDetail();
+
+  let pct = 0;
+  const uploadTimer = setInterval(() => {
+    pct += 10;
+    progressBar.style.width = pct + "%";
+    if (pct >= 100) {
+      clearInterval(uploadTimer);
+      progressLabel.textContent = "Upload complete — pipeline running…";
+      markStep("upload");
+      runPipeline(newId);
+    }
+  }, 120);
+}
+
+function markStep(name) {
+  const el = document.querySelector(`.step[data-step="${name}"]`);
+  el.classList.remove("active");
+  el.classList.add("done");
+  const idx = steps.indexOf(name);
+  if (idx + 1 < steps.length) {
+    document.querySelector(`.step[data-step="${steps[idx + 1]}"]`).classList.add("active");
+  }
+}
+
+function runPipeline(id) {
+  let i = 1; // "upload" already done
+  document.querySelector(`.step[data-step="${steps[1]}"]`).classList.add("active");
+  const timer = setInterval(() => {
+    if (i >= steps.length) {
+      clearInterval(timer);
+      finishProcessing(id);
+      return;
+    }
+    markStep(steps[i]);
+    i++;
+  }, 700);
+}
+
+function finishProcessing(id) {
+  const c = conversations.find(x => x.id === id);
+  c.status = "ready";
+  c.duration = "4 min";
+  c.summary = "This is a placeholder summary — once the speech-to-text and LLM steps are wired to real APIs, this will show the actual 3-sentence summary generated from your uploaded audio.";
+  c.tags = ["new-upload", "auto-generated"];
+  c.actionItems = ["Review the auto-generated summary once real APIs are connected"];
+  c.transcript = [{ time: "00:00", speaker: "Speaker 1", text: "(Placeholder transcript — will populate once Speech-to-Text is integrated in Phase 2.)" }];
+  renderList(); renderDetail();
+  setTimeout(() => { overlay.classList.remove("show"); }, 500);
+}
+
+/* Init */
+renderList();
+renderDetail();
+</script>
+</body>
+</html>
